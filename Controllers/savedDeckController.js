@@ -19,6 +19,7 @@ export const getAllSavedDecksByUser = async (req, res) => {
     const userId = req.params.id;
 
     const savedDecks = await Saved.find({ user_id: userId })
+    .populate("user_id", "username")
     .populate({
       path: 'deck_id',
       select: 'name level card_count user_id',
@@ -27,7 +28,6 @@ export const getAllSavedDecksByUser = async (req, res) => {
         select: 'username',
       },
     });
-
 
     const decksWithVotes = await Promise.all(
       savedDecks.map(async (savedDeck) => {
@@ -38,8 +38,9 @@ export const getAllSavedDecksByUser = async (req, res) => {
 
         // Add vote information to the deck object
         const deckWithVote = {
-          ...savedDeck.deck_id._doc,
+          ...savedDeck._doc,
           voteType: vote ? vote.voteType : null,
+          // user_id: savedDeck.deck_id.user_id._id,
         };
 
         return deckWithVote;
@@ -75,23 +76,46 @@ export const getSavedById = async (req, res) => {
   }
 }
 
+// export const saveDeck = async (req, res) => {
+//   try {
+//     const userId = req.params.id
+//       const newSaved = new Saved ({
+//         user_id: userId,
+//         deck_id: req.body.deck_id,
+//        });
+//       await newSaved.save();
+//       res.status(201).json({ message: 'deck saved successfully!' });
+//       console.log(Saved)
+//   } catch (error) {
+//       if (error) {
+//           return res.status(400).json({ message: error.message });
+//       }
+//       res.status(500).json({ message: "Internal Server Error" });
+//   }
+// }
+
 export const saveDeck = async (req, res) => {
   try {
-    const userId = req.params.id
-      const newSaved = new Saved ({
-        user_id: userId,
-        deck_id: req.body.deck_id,
-       });
-      await newSaved.save();
-      res.status(201).json({ message: 'deck saved successfully!' });
-      console.log(Saved)
+    const userId = req.params.id;
+    const deckId = req.body.deck_id;
+
+    // Check if the combination of user_id and deck_id already exists
+    const existingSaved = await Saved.findOne({ user_id: userId, deck_id: deckId });
+    if (existingSaved) {
+      return res.status(400).json({ message: 'The deck is already saved!' });
+    }
+
+    const newSaved = new Saved({
+      user_id: userId,
+      deck_id: deckId,
+    });
+    await newSaved.save();
+    res.status(201).json({ message: 'Deck saved successfully!' });
+    console.log(Saved);
   } catch (error) {
-      if (error) {
-          return res.status(400).json({ message: error.message });
-      }
-      res.status(500).json({ message: "Internal Server Error" });
+    res.status(500).json({ message: 'Internal Server Error' });
   }
-}
+};
 
 
 export const unSaveDeck = async (req, res)=>{
